@@ -910,6 +910,14 @@ function clearLog() {
 function updateStats() {
     const now=Date.now();
     const sec1=now-1000, win=now-rateLimitWindow*1000;
+    // Trim expired timestamps
+    const cut=now-rateLimitWindow*1000;
+    const keep=requestTimestamps.findIndex(t=>t.getTime()>cut);
+    if(keep>0){ 
+        requestTimestamps=requestTimestamps.slice(keep); 
+        requestResponseTimes=requestResponseTimes.slice(keep); 
+    }
+
 
     const rps=requestTimestamps.filter(t=>t.getTime()>sec1).length;
     const wReqs=requestTimestamps.filter(t=>t.getTime()>win).length;
@@ -925,6 +933,9 @@ function updateStats() {
         const left=Math.max(0,rateLimitWindow-((now-oldest.getTime())/1000));
         setVal('resetValue',Math.ceil(left)+'s');
         setBar('resetBar',((rateLimitWindow-left)/rateLimitWindow)*100);
+    } else {
+        setVal('resetValue','--');
+        setBar('resetBar',0);
     }
 
     setVal('totalValue',requestCount); setBar('totalBar',Math.min(100,(requestCount/20)*100));
