@@ -37,11 +37,14 @@ func main() {
 	}
 
 	// Authenticate test client
-	err = rl.Authenticate("client1", "mypassword")
-	if err != nil {
-		fmt.Println("Authentication failed")
-	} else {
-		fmt.Println("Authentication successful")
+	// Register multiple clients
+	clients := []string{"client1", "client2", "client3"}
+
+	for _, c := range clients {
+		err := rl.RegisterClient(c, "mypassword")
+		if err != nil {
+			fmt.Println("Registration error:", err)
+		}
 	}
 
 	// API handler
