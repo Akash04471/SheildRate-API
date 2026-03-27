@@ -36,7 +36,6 @@ func main() {
 		fmt.Println("Registration error:", err)
 	}
 
-	// Authenticate test client
 	// Register multiple clients
 	clients := []string{"client1", "client2", "client3"}
 
@@ -90,6 +89,8 @@ func main() {
 		}
 
 		// Generate token response (JSON marshalling)
+		fmt.Println("Authentication successful for client:", authRequest.ClientID)
+
 		tokenResponse := struct {
 			Token     string `json:"token"`
 			ClientID  string `json:"clientID"`
