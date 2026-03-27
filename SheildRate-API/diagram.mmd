@@ -1,0 +1,65 @@
+graph TD
+    %% Styling
+    style Frontend fill:#1e293b,stroke:#0ea5e9,stroke-width:2px,color:#f8fafc
+    style GoServer fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#f8fafc
+    style RateLimiterCore fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc
+    style AsyncWorker fill:#312e81,stroke:#6366f1,stroke-width:2px,color:#f8fafc
+
+    subgraph User["External"]
+        Client[("Web Browser / UI")]
+    end
+    
+    subgraph Frontend["Frontend Client (HTML/JS/CSS)"]
+        UI_Login[Login Form]
+        UI_Dash[Analytics Dashboard]
+        UI_Requester[API Requester]
+        
+        UI_Login --> |POST /auth/login<br>Credentials| BackendRouter
+        UI_Dash -.-> |Displays Metrics| UI_Requester
+        UI_Requester --> |GET /api/status<br>Bearer Token + Auth Headers| BackendRouter
+    end
+
+    Client --> |GET / <br> Static Files| StaticServer
+    
+    subgraph GoServer["Go HTTP Server (:8081)"]
+        BackendRouter((Request Router))
+        StaticServer["HTTP File Server<br>(Serves ./frontend)"]
+        
+        BackendRouter --> |Auth Route| AuthHandler
+        BackendRouter --> |API Route| MiddlewarePipeline
+        
+        AuthHandler["Auth Handler<br>(bcrypt validation + JWT generation)"]
+        
+        subgraph MiddlewarePipeline["Protected Middleware Chain"]
+            CORS[CORS Middleware]
+            JWT["JWT Validation Middleware<br>(Signature & Expiry Check)"]
+            RL_Mid["Rate Limit Middleware<br>(Intersects with Core)"]
+            
+            CORS --> JWT --> RL_Mid
+        end
+        
+        APIHandler["Core API Endpoint<br>Success JSON Provider"]
+        
+        RL_Mid --> |If Allowed| APIHandler
+        RL_Mid -.-> |If Blocked| Rejects[Returns 429 Too Many Requests]
+    end
+
+    subgraph RateLimiterCore["Rate Limiter Engine"]
+        RL_Engine{{"In-Memory Token/Map Engine"}}
+        Mutex["Concurrency Mutex Locks"]
+        RL_Engine --- Mutex
+    end
+    
+    subgraph AsyncWorker["Background Asynchronous Services"]
+        LoggerChannel>logChan: chan string]
+        LogGoroutine(["Async Logger Goroutine"])
+        
+        LoggerChannel --> |Consumes messages continuously| LogGoroutine
+    end
+
+    %% Connections
+    StaticServer -.-> |Returns index.html| Frontend
+    AuthHandler -.-> |Returns valid signed string| UI_Login
+    RL_Mid <==> |Validates Quotas/Time Windows| RL_Engine
+    APIHandler --> |Writes status string| LoggerChannel
+    LogGoroutine --> |stdout print formatting| ConsoleOut((Console/Log File))
