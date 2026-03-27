@@ -714,6 +714,22 @@
             </div>
         </div>
 
+        <!-- Live Server Analytics -->
+        <div class="tester-section" id="liveAnalyticsSection" style="animation: fadeUp .75s cubic-bezier(.16,1,.3,1) .22s both;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div class="section-title" style="margin:0">SERVER ANALYTICS (LIVE)</div>
+                <button class="btn-action outline" onclick="fetchAnalytics()" style="padding:6px 14px;font-size:11px;">↻ Refresh</button>
+            </div>
+            <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+                <div class="stat-card"><div class="sc-label">MEAN LATENCY</div><div class="sc-value cyan" id="anMean">--</div><div class="sc-sub">milliseconds</div></div>
+                <div class="stat-card"><div class="sc-label">MEDIAN LATENCY</div><div class="sc-value teal" id="anMedian">--</div><div class="sc-sub">milliseconds</div></div>
+                <div class="stat-card"><div class="sc-label">STD DEVIATION</div><div class="sc-value amber" id="anStdDev">--</div><div class="sc-sub">dispersion (ms)</div></div>
+                <div class="stat-card"><div class="sc-label">P95 LATENCY</div><div class="sc-value violet" id="anP95">--</div><div class="sc-sub">95th percentile</div></div>
+                <div class="stat-card"><div class="sc-label">P99 LATENCY</div><div class="sc-value cyan" id="anP99">--</div><div class="sc-sub">99th percentile</div></div>
+                <div class="stat-card"><div class="sc-label">THROUGHPUT</div><div class="sc-value teal" id="anThroughput">--</div><div class="sc-sub">requests/sec</div></div>
+            </div>
+        </div>
+
         <!-- Controls -->
         <div class="controls-row">
             <button class="btn-action primary" id="sendBtn" onclick="sendRequest()">
@@ -749,6 +765,29 @@
             <pre class="tester-output" id="testerOutput"></pre>
         </div>
 
+        <!-- String Utilities Playground -->
+        <div class="tester-section" style="animation: fadeUp .9s cubic-bezier(.16,1,.3,1) .38s both;">
+            <div class="section-title">STRING UTILITIES PLAYGROUND</div>
+            <div class="tester-row" style="margin-bottom:16px;">
+                <input class="tester-input" type="text" id="strUtilInput" placeholder="Type any string... e.g. MyExampleString or <script>test</script>" />
+                <button class="btn-action primary" onclick="fetchStringUtil()">⚡ Run All</button>
+            </div>
+            <div id="strUtilResults" style="display:none;">
+                <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);gap:12px;">
+                    <div class="stat-card"><div class="sc-label">VALIDATE CLIENT ID</div><div class="sc-sub" style="font-size:13px;margin-top:6px;color:var(--text)" id="suValidate">—</div></div>
+                    <div class="stat-card"><div class="sc-label">MASK TOKEN</div><div class="sc-sub" style="font-size:13px;margin-top:6px;color:var(--cyan)" id="suMask">—</div></div>
+                    <div class="stat-card"><div class="sc-label">SANITIZE INPUT</div><div class="sc-sub" style="font-size:13px;margin-top:6px;color:var(--teal)" id="suSanitize">—</div></div>
+                    <div class="stat-card"><div class="sc-label">SLUGIFY</div><div class="sc-sub" style="font-size:13px;margin-top:6px;color:var(--amber)" id="suSlugify">—</div></div>
+                    <div class="stat-card"><div class="sc-label">REVERSE STRING</div><div class="sc-sub" style="font-size:13px;margin-top:6px;color:var(--violet)" id="suReverse">—</div></div>
+                    <div class="stat-card"><div class="sc-label">CAMEL TO SNAKE</div><div class="sc-sub" style="font-size:13px;margin-top:6px;color:var(--fuchsia)" id="suCamelSnake">—</div></div>
+                </div>
+                <div class="stat-card" style="margin-top:12px;">
+                    <div class="sc-label">FORMAT LOG ENTRY</div>
+                    <pre style="font-size:12px;color:var(--teal);margin-top:6px;white-space:pre-wrap;word-break:break-all;font-family:'Space Mono',monospace;" id="suFormatLog">—</pre>
+                </div>
+            </div>
+        </div>
+
         <!-- Analytics -->
         <div class="analytics-section" id="analyticsSection">
             <div class="analytics-toggle" onclick="toggleAnalyticsPanel()">
@@ -780,7 +819,7 @@
 
 <script>
 // ─── STATE ───────────────────────────────────────────────
-const API_URL = "http://localhost:8080";
+const API_URL = "http://localhost:8081";
 let authToken = null, currentClientID = null;
 let requestCount=0, successCount=0, blockedCount=0, warningCount=0;
 let sessionStart=null;
@@ -915,7 +954,7 @@ function sendRequest() {
     btn.disabled=true;
     const t0=performance.now(), ts=new Date();
 
-    fetch(API_URL, {
+    fetch(API_URL + "/api/status", {
         method:'GET', headers:{
             'X-Client-ID':currentClientID,
             'Authorization':`Bearer ${authToken}`,
@@ -937,7 +976,7 @@ function sendRequest() {
         else if(res.status===429){ blockedCount++; type='blocked'; playNote('error'); }
         else{ warningCount++; type='warning'; playNote('warning'); }
 
-        const entry={id:requestCount,ts,endpoint:'/',type,rt:res.rt,msg:res.data.message||'OK'};
+        const entry={id:requestCount,ts,endpoint:'/api/status',type,rt:res.rt,msg:res.data.message||'OK'};
         addLogEntry(entry); updateStats(); updateHealth();
         showToast(`${type==='success'?'✓':type==='blocked'?'✗':'⚠'} #${requestCount} — ${entry.msg}`, type);
     })
@@ -1160,6 +1199,55 @@ function showToast(msg, type) {
     t.innerHTML=`<div class="t-dot"></div><span>${msg}</span>`;
     c.appendChild(t);
     setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); },3000);
+}
+
+// ─── LIVE SERVER ANALYTICS ────────────────────────────────
+function fetchAnalytics() {
+    if(!authToken) return;
+    fetch(API_URL + '/api/analytics', {
+        headers:{'Authorization':`Bearer ${authToken}`,'X-Client-ID':currentClientID}
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        document.getElementById('anMean').textContent = d.mean_ms ?? '--';
+        document.getElementById('anMedian').textContent = d.median_ms ?? '--';
+        document.getElementById('anStdDev').textContent = d.std_dev_ms ?? '--';
+        document.getElementById('anP95').textContent = d.p95_ms ?? '--';
+        document.getElementById('anP99').textContent = d.p99_ms ?? '--';
+        document.getElementById('anThroughput').textContent = d.throughput_rps ?? '--';
+        showToast('Analytics refreshed','success'); playNote('success');
+    })
+    .catch(()=>showToast('Failed to fetch analytics','error'));
+}
+
+// ─── STRING UTILITIES PLAYGROUND ─────────────────────────
+function fetchStringUtil() {
+    if(!authToken) { showToast('Not authenticated','error'); return; }
+    const input = document.getElementById('strUtilInput').value.trim();
+    if(!input) { showToast('Enter a string to process','warning'); playNote('warning'); return; }
+
+    fetch(API_URL + '/api/stringutil?input=' + encodeURIComponent(input), {
+        headers:{'Authorization':`Bearer ${authToken}`,'X-Client-ID':currentClientID}
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        document.getElementById('strUtilResults').style.display='block';
+
+        // ValidateClientID — show valid/invalid with color
+        const valEl = document.getElementById('suValidate');
+        valEl.textContent = d.validate_client_id.message;
+        valEl.style.color = d.validate_client_id.valid ? 'var(--success)' : 'var(--error)';
+
+        document.getElementById('suMask').textContent = d.mask_token;
+        document.getElementById('suSanitize').textContent = d.sanitize_input || '(empty after sanitizing)';
+        document.getElementById('suSlugify').textContent = d.slugify || '(empty slug)';
+        document.getElementById('suReverse').textContent = d.reverse_string;
+        document.getElementById('suCamelSnake').textContent = d.camel_to_snake;
+        document.getElementById('suFormatLog').textContent = d.format_log_entry;
+
+        showToast('String utilities executed','success'); playNote('success');
+    })
+    .catch(()=>showToast('Failed to fetch string utils','error'));
 }
 </script>
 </body>

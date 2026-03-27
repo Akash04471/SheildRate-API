@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"api-rate-limiter/config"
 	ratelimiter "api-rate-limiter/rate-limiter"
@@ -20,21 +19,8 @@ func RateLimitMiddleware(rl *ratelimiter.RateLimiter, next http.Handler) http.Ha
 			clientID = r.RemoteAddr
 		}
 
-		// Verify authentication token (Bearer token)
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			fmt.Println("Unauthorized: Missing authentication token for:", clientID)
-			respondWithError(w, "Authentication required. Please provide valid Bearer token.", http.StatusUnauthorized)
-			return
-		}
+		// token validation is handled by jwtMiddleware
 
-		// Token format validation (basic check)
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == "" {
-			fmt.Println("Unauthorized: Invalid token format for:", clientID)
-			respondWithError(w, "Invalid authentication token.", http.StatusUnauthorized)
-			return
-		}
 
 		allowed, err := rl.Allow(clientID, config.MaxRequests, config.WindowDuration)
 
