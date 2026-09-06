@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"api-rate-limiter/config"
-	"api-rate-limiter/middleware"
+	"shieldrate-api/config"
+	"shieldrate-api/middleware"
+	ratelimiter "shieldrate-api/rate-limiter"
 )
 
 // CORS middleware for browser-based frontend
-func enableCORS(next http.Handler) http.Handler {//cross-origin requests
+func enableCORS(next http.Handler) http.Handler { //cross-origin requests
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -29,6 +30,14 @@ func enableCORS(next http.Handler) http.Handler {//cross-origin requests
 func main() {
 
 	fmt.Println("Starting API Rate Limiter Server...")
+	fmt.Printf("Configured Algorithm: %s (Limit: %d, Window: %v)\n", config.Algorithm, config.RequestLimit, config.TimeWindow)
+
+	// Initialize Rate Limiter using Factory
+	limiter := ratelimiter.NewLimiter(
+		ratelimiter.AlgorithmType(config.Algorithm),
+		config.RequestLimit,
+		config.TimeWindow,
+	)
 
 	// Base API handler
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +49,7 @@ func main() {
 	http.Handle(
 		"/api/test",
 		enableCORS(
-			middleware.RateLimiter(handler),
+			middleware.RateLimiter(limiter)(handler),
 		),
 	)
 
